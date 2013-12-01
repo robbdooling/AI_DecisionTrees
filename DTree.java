@@ -8,6 +8,7 @@
 import java.io.*;
 import java.util.Scanner;
 import java.util.Arrays;
+import java.text.*;
 
 public class DTree {
 
@@ -24,8 +25,10 @@ public class DTree {
     static String[][] aFieldDescriptors;
     static Character[][] examples;
     static Character[] outputSymbols;
-    static String[] oSymbolDescriptors;   
+    static String[] oSymbolDescriptors;
     
+    static DecimalFormat df = new DecimalFormat("0.000");
+        
     /*
      * main
      * handle input and validation
@@ -68,6 +71,34 @@ public class DTree {
         }
         
         readInputFile(inputFile);
+        
+        System.out.println("output symbols: " + Arrays.toString(outputSymbols));
+        System.out.println("output symbol descriptors: " + Arrays.toString(oSymbolDescriptors));
+        System.out.println("attributes: " + Arrays.toString(attributes));
+        System.out.println("aFields: ");
+        
+        for (int i = 0; i < aFields.length; i++) {
+            for (int j = 0; j < aFields[i].length; j++) {
+                System.out.print(aFields[i][j] + " ");
+            }
+        }
+                    System.out.println("");
+        System.out.println("aFieldDescriptors: ");
+        for (int i = 0; i < aFieldDescriptors.length; i++) {
+            for (int j = 0; j < aFieldDescriptors[i].length; j++) {
+                System.out.print(aFieldDescriptors[i][j] + " ");
+            }
+        }
+                                System.out.println("");
+        System.out.println("examples: ");
+        for (int i = 0; i < examples.length; i++) {
+            for (int j = 0; j < examples[i].length; j++) {
+                System.out.print(examples[i][j]);
+            }
+                                                System.out.println("");
+        }
+        
+        decideTree();
     }
     
     /*
@@ -77,6 +108,7 @@ public class DTree {
      * @return  None
      */
     public static void readInputFile(File f) {
+        
         try {
 
             BufferedReader br = new BufferedReader(new FileReader(f));
@@ -138,40 +170,86 @@ public class DTree {
                     // skip over every second char (avoid commas)
                     examples[i][j] = exampleLine.charAt(j*2);
                 }
-            }
-            
-            System.out.println("output symbols: " + Arrays.toString(outputSymbols));
-            System.out.println("output symbol descriptors: " + Arrays.toString(oSymbolDescriptors));
-            System.out.println("attributes: " + Arrays.toString(attributes));
-            System.out.println("aFields: ");
-            
-            for (int i = 0; i < aFields.length; i++) {
-                for (int j = 0; j < aFields[i].length; j++) {
-                    System.out.print(aFields[i][j] + " ");
-                }
-            }
-                        System.out.println("");
-            System.out.println("aFieldDescriptors: ");
-            for (int i = 0; i < aFieldDescriptors.length; i++) {
-                for (int j = 0; j < aFieldDescriptors[i].length; j++) {
-                    System.out.print(aFieldDescriptors[i][j] + " ");
-                }
-            }
-                                    System.out.println("");
-            System.out.println("examples: ");
-            for (int i = 0; i < examples.length; i++) {
-                for (int j = 0; j < examples[i].length; j++) {
-                    System.out.print(examples[i][j]);
-                }
-                                                    System.out.println("");
-            }
-            
+            }            
             br.close();
                 
         } catch (Exception e) {
             System.out.println("Error while reading input file. Exception: " + e.getMessage());
             System.exit(0);
         }
+    }
+    
+    /*
+     * decideTree
+     * calculate entropies to help us figure out levels of the decision tree
+     * @param   None
+     * @return  None
+     */
+    public static void decideTree() {
+        
+        double[][] aFieldEntropies = new double[attributes.length][];
+        int[][] aFieldFrequencies = new int[attributes.length][];
+        for (int i = 0; i < attributes.length; i++) {
+            aFieldEntropies[i] = new double[aFields[i].length];
+            aFieldFrequencies[i] = new int[aFields[i].length];
+        }
+        double[] aWeightedEntropies = new double[attributes.length];
+        
+        // determine which attribute will be the root of the tree
+        for (int i = 0; i < attributes.length; i++) {
+            
+            System.out.println("Let's try " + attributes[i] + ":");
+            // find entropy of each field for this attribute
+            for (int j = 0; j < aFields[i].length; j++) {
+                
+                int numTrue = 0;
+                int numFalse = 0;
+                int totalExamples = 0;
+                
+                // look for instances of the field in examples
+                for (int k = 0; k < examples.length; k++) {
+                    // get k-th example and attribute field located at j+1
+                    if (examples[k][i+1] == aFields[i][j]) {
+                        
+                        if (examples[k][0] == 't') {
+                            numTrue++;
+                        }
+                        else {
+                            numFalse++;
+                        }
+                    }
+                }
+
+                aFieldFrequencies[i][j] = numTrue + numFalse;
+                aFieldEntropies[i][j] = calculateEntropy(numTrue, numFalse, aFieldFrequencies[i][j]);
+                System.out.println("     Entropy of field " + aFields[i][j] + "=" +
+                                   aFieldDescriptors[i][j] + " is " + aFieldEntropies[i][j]);
+                
+                // add entropy * frequency to weighted entropies
+                aWeightedEntropies[i] += aFieldEntropies[i][j] * aFieldFrequencies[i][j];
+                break;
+            }
+
+            // divide weighted entropy by total number of examples to get average
+            aWeightedEntropies[i] = aWeightedEntropies[i] / examples.length;
+            
+            System.out.println("     Weighted entropy of attribute " + attributes[i] + " is " + df.format(aWeightedEntropies[i]));
+            System.out.println("     Information gain of attribute " + attributes[i] + " is " + df.format((1.000 - aWeightedEntropies[i])));
+            
+        }
+    }
+    
+    /*
+     * calculateEntropy
+     * @param t     number of examples that returned "true" with this field
+     * @param f     number of examples that returned "false" with this field
+     * @param n     total number of examples
+     * @return entropy of the attribute field based on t and n
+     */
+    public static double calculateEntropy(double t, double f, double n) {
+        double entropy = ((-1 * t/n) * (Math.log(t/n) / Math.log(2)))
+                         - ((f/n) * (Math.log(f/n) / Math.log(2)));
+        return entropy;
     }
 
 }
