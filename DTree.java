@@ -6,6 +6,7 @@
  */
 
 import java.io.*;
+import java.lang.Double;
 import java.util.Scanner;
 import java.util.Arrays;
 import java.text.*;
@@ -223,19 +224,17 @@ public class DTree {
                 aFieldFrequencies[i][j] = numTrue + numFalse;
                 aFieldEntropies[i][j] = calculateEntropy(numTrue, numFalse, aFieldFrequencies[i][j]);
                 System.out.println("     Entropy of field " + aFields[i][j] + "=" +
-                                   aFieldDescriptors[i][j] + " is " + aFieldEntropies[i][j]);
+                                   aFieldDescriptors[i][j] + " is " + df.format(aFieldEntropies[i][j]));
                 
                 // add entropy * frequency to weighted entropies
                 aWeightedEntropies[i] += aFieldEntropies[i][j] * aFieldFrequencies[i][j];
-                break;
             }
 
             // divide weighted entropy by total number of examples to get average
             aWeightedEntropies[i] = aWeightedEntropies[i] / examples.length;
             
             System.out.println("     Weighted entropy of attribute " + attributes[i] + " is " + df.format(aWeightedEntropies[i]));
-            System.out.println("     Information gain of attribute " + attributes[i] + " is " + df.format((1.000 - aWeightedEntropies[i])));
-            
+            System.out.println("     Information gain of attribute " + attributes[i] + " is " + df.format((1.000 - aWeightedEntropies[i])));   
         }
     }
     
@@ -249,6 +248,11 @@ public class DTree {
     public static double calculateEntropy(double t, double f, double n) {
         double entropy = ((-1 * t/n) * (Math.log(t/n) / Math.log(2)))
                          - ((f/n) * (Math.log(f/n) / Math.log(2)));
+            
+        // if the result is not a number, just return 0.000
+        if (Double.isNaN(entropy)) {
+            entropy = 0.000;
+        }
         return entropy;
     }
 
