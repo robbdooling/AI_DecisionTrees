@@ -7,8 +7,10 @@
 
 import java.io.*;
 import java.lang.Double;
-import java.util.Scanner;
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Scanner;
+import java.util.Vector;
 import java.text.*;
 
 public class DTree {
@@ -21,12 +23,16 @@ public class DTree {
     
     // variables defined in input file:
     // attributes in decision tree and their fields, number of examples, output symbols for class designation
-    static String[] attributes;
-    static Character[][] aFields;
-    static String[][] aFieldDescriptors;
-    static Character[][] examples;
-    static Character[] outputSymbols;
-    static String[] oSymbolDescriptors;
+    static int numOfAttributes;
+    static ArrayList<String> attributes;
+    static ArrayList<ArrayList<Character>> aFields;
+    static ArrayList<ArrayList<String>> aFieldDescriptors;
+    
+    static int numOfExamples;
+    static ArrayList<ArrayList<Character>> examples;
+    
+    static ArrayList<Character> outputSymbols;
+    static ArrayList<String> oSymbolDescriptors;
     
     static DecimalFormat df = new DecimalFormat("0.000");
         
@@ -73,33 +79,48 @@ public class DTree {
         
         readInputFile(inputFile);
         
-        System.out.println("output symbols: " + Arrays.toString(outputSymbols));
-        System.out.println("output symbol descriptors: " + Arrays.toString(oSymbolDescriptors));
-        System.out.println("attributes: " + Arrays.toString(attributes));
-        System.out.println("aFields: ");
+        /*
+        System.out.print("\noutput symbols: ");
+        for (int i = 0; i < outputSymbols.size(); i++) {
+            System.out.print(outputSymbols.get(i) + " ");
+        }
+        System.out.println("\noutput symbol descriptors: ");
+        for (int i = 0; i < oSymbolDescriptors.size(); i++) {
+            System.out.print(oSymbolDescriptors.get(i) + " ");
+        }
+        System.out.print("\nattributes: ");
+        for (int i = 0; i < attributes.size(); i++) {
+            System.out.print(attributes.get(i) + " ");
+        }
+        System.out.print("\naFields: ");
+        for (int i = 0; i < aFields.size(); i++) {
+            System.out.print(aFields.get(i) + " ");
+        }
         
-        for (int i = 0; i < aFields.length; i++) {
-            for (int j = 0; j < aFields[i].length; j++) {
-                System.out.print(aFields[i][j] + " ");
+        for (int i = 0; i < aFields.size(); i++) {
+            for (int j = 0; j < aFields.get(i).size(); j++) {
+                System.out.print(aFields.get(i).get(j) + " ");
             }
         }
-                    System.out.println("");
-        System.out.println("aFieldDescriptors: ");
-        for (int i = 0; i < aFieldDescriptors.length; i++) {
-            for (int j = 0; j < aFieldDescriptors[i].length; j++) {
-                System.out.print(aFieldDescriptors[i][j] + " ");
+        
+        System.out.println("\naFieldDescriptors: ");
+        for (int i = 0; i < aFieldDescriptors.size(); i++) {
+            for (int j = 0; j < aFieldDescriptors.get(i).size(); j++) {
+                System.out.print(aFieldDescriptors.get(i).get(j) + " ");
             }
         }
-                                System.out.println("");
-        System.out.println("examples: ");
-        for (int i = 0; i < examples.length; i++) {
-            for (int j = 0; j < examples[i].length; j++) {
-                System.out.print(examples[i][j]);
+        
+        System.out.println("\nexamples: ");
+        for (int i = 0; i < examples.size(); i++) {
+            for (int j = 0; j < examples.get(i).size(); j++) {
+                System.out.print(examples.get(i).get(j));
             }
                                                 System.out.println("");
         }
+        */
         
-        decideTree();
+        System.out.println("The Decision Tree Built With " + (percent / examples.size()) + " Traning Samples");
+        decideNextTreeLevel(0, attributes, aFields, aFieldDescriptors, examples);
     }
     
     /*
@@ -111,66 +132,71 @@ public class DTree {
     public static void readInputFile(File f) {
         
         try {
-
             BufferedReader br = new BufferedReader(new FileReader(f));
 
             // first line of file = number of attributes
-            attributes = new String[Integer.parseInt(br.readLine())];
-            aFields = new Character[attributes.length][];
-            aFieldDescriptors = new String[attributes.length][];
+            numOfAttributes = Integer.parseInt(br.readLine());
+            attributes = new ArrayList<String>();
+            aFields = new ArrayList<ArrayList<Character>>();
+            aFieldDescriptors = new ArrayList<ArrayList<String>>();
 
             // second line of file = number of examples
             // each example has x + 1 attributes (+1 for the class designation)
-            examples = new Character[Integer.parseInt(br.readLine())][attributes.length + 1];
+            numOfExamples = Integer.parseInt(br.readLine());
+            examples = new ArrayList<ArrayList<Character>>();
 
             // third line of file = output symbols for class designations, in the format:
             // classes:t=true,f=false (here, the output symbols are t and f)
             String[] classes = br.readLine().split(",");
-            outputSymbols = new Character[classes.length];
-            oSymbolDescriptors = new String[classes.length];
+            outputSymbols = new ArrayList<Character>();
+            oSymbolDescriptors = new ArrayList<String>();
 
             // skip over "classes:" in first comma-delimited string; get char at 8 instead of 0
-            outputSymbols[0] = classes[0].charAt(8);
-            oSymbolDescriptors[0] = classes[0].substring(classes[0].indexOf('=') + 1);
+            outputSymbols.add(classes[0].charAt(8));
+            oSymbolDescriptors.add(classes[0].substring(classes[0].indexOf('=') + 1));
             
             // for all other comma-delimited strings, get char at 0 to determine symbol
             for (int i = 1; i < classes.length; i++) {
-                outputSymbols[i] = classes[i].charAt(0);
-                oSymbolDescriptors[i] = classes[i].substring(classes[i].indexOf('=') + 1);
+                outputSymbols.add(classes[i].charAt(0));
+                oSymbolDescriptors.add(classes[i].substring(classes[i].indexOf('=') + 1));
             }
             
             // fourth line = skip
             br.readLine();
-                       
+                      
             // starting at fifth line, get attributes
-            for (int i = 0; i < attributes.length; i++) {
-                                
+            for (int i = 0; i < numOfAttributes; i++) {        
                 // split line wherever it contains ',' or ':'
+                ArrayList<Character> newAttributeFields = new ArrayList<Character>();
+                ArrayList<String> newFieldDescriptors = new ArrayList<String>();
                 String[] attributeLine = br.readLine().split(",|\\:");
-                            
-                attributes[i] = attributeLine[0];
-                                
-                // add fields and descriptors for this line
-                aFields[i] = new Character[attributeLine.length-1];
-                aFieldDescriptors[i] = new String[attributeLine.length-1];
-
+                                           
+                attributes.add(attributeLine[0]);
+                                            
                 // for each attribute field
                 for (int j = 0; j < attributeLine.length - 1; j++) {
-                    // first character only = attribute field synbol
-                    aFields[i][j] = attributeLine[j+1].charAt(0);
+                    // first character only = attribute field symbol
+                    newAttributeFields.add(attributeLine[j+1].charAt(0));
                     // the rest of the string after the '=' is the attribute field descriptor
-                    aFieldDescriptors[i][j] = attributeLine[j+1].substring(attributeLine[j+1].indexOf('=') + 1);
+                    newFieldDescriptors.add(attributeLine[j+1].substring(attributeLine[j+1].indexOf('=') + 1));
                 }
+                
+                aFields.add(newAttributeFields);
+                aFieldDescriptors.add(newFieldDescriptors);
             }
             
             // starting at line after attributes, get examples
             // (examples is an 2D array of characters, and each group of characters is one example)
-            for (int i = 0; i < examples.length; i++) {
+            for (int i = 0; i < numOfExamples; i++) {
+                ArrayList<Character> examplesSet = new ArrayList<Character>();
+                
                 String exampleLine = br.readLine();
-                for (int j = 0; j < examples[i].length; j++) {
+                for (int j = 0; j < numOfAttributes + 1; j++) {
                     // skip over every second char (avoid commas)
-                    examples[i][j] = exampleLine.charAt(j*2);
+                    examplesSet.add(exampleLine.charAt(j*2));
                 }
+                
+                examples.add(examplesSet);
             }            
             br.close();
                 
@@ -183,36 +209,44 @@ public class DTree {
     /*
      * decideTree
      * calculate entropies to help us figure out levels of the decision tree
-     * @param   None
+     * @param   attributes
+     * @param   aFields
+     * @param   examples
      * @return  None
      */
-    public static void decideTree() {
+    public static void decideNextTreeLevel(int treeLevel,
+                                           ArrayList<String> c_attributes,
+                                           ArrayList<ArrayList<Character>> c_aFields,
+                                           ArrayList<ArrayList<String>> c_aFieldDescriptors,
+                                           ArrayList<ArrayList<Character>> examples) {
         
-        double[][] aFieldEntropies = new double[attributes.length][];
-        int[][] aFieldFrequencies = new int[attributes.length][];
-        for (int i = 0; i < attributes.length; i++) {
-            aFieldEntropies[i] = new double[aFields[i].length];
-            aFieldFrequencies[i] = new int[aFields[i].length];
-        }
-        double[] aWeightedEntropies = new double[attributes.length];
+        ArrayList<ArrayList<Double>> c_aFieldEntropies = new ArrayList<ArrayList<Double>>();
+        ArrayList<ArrayList<Integer>> c_aFieldFrequencies = new ArrayList<ArrayList<Integer>>();
+           
+        ArrayList<Double> c_aWeightedEntropies = new ArrayList<Double>();
         
         // determine which attribute will be the root of the tree
-        for (int i = 0; i < attributes.length; i++) {
+        for (int i = 0; i < c_attributes.size(); i++) {
             
-            System.out.println("Let's try " + attributes[i] + ":");
+            //System.out.println("Let's try " + c_attributes.get(i) + ":");
             // find entropy of each field for this attribute
-            for (int j = 0; j < aFields[i].length; j++) {
+            
+            ArrayList<Double> entropiesSet = new ArrayList<Double>();
+            ArrayList<Integer> frequenciesSet = new ArrayList<Integer>();
+            double weightedEntropy = 0.00;
+            
+            for (int j = 0; j < c_aFields.get(i).size(); j++) {
                 
                 int numTrue = 0;
                 int numFalse = 0;
                 int totalExamples = 0;
                 
                 // look for instances of the field in examples
-                for (int k = 0; k < examples.length; k++) {
+                for (int k = 0; k < examples.size(); k++) {
                     // get k-th example and attribute field located at j+1
-                    if (examples[k][i+1] == aFields[i][j]) {
+                    if (examples.get(k).get(i+1) == c_aFields.get(i).get(j)) {
                         
-                        if (examples[k][0] == 't') {
+                        if (examples.get(k).get(0) == 't') {
                             numTrue++;
                         }
                         else {
@@ -220,21 +254,116 @@ public class DTree {
                         }
                     }
                 }
-
-                aFieldFrequencies[i][j] = numTrue + numFalse;
-                aFieldEntropies[i][j] = calculateEntropy(numTrue, numFalse, aFieldFrequencies[i][j]);
-                System.out.println("     Entropy of field " + aFields[i][j] + "=" +
-                                   aFieldDescriptors[i][j] + " is " + df.format(aFieldEntropies[i][j]));
+                
+                int newFrequency = numTrue + numFalse;
+                double newEntropy = calculateEntropy(numTrue, numFalse, numTrue + numFalse);
+                
+                /*
+                System.out.println("     Entropy of field " + c_aFields.get(i).get(j) + "=" +
+                                   c_aFieldDescriptors.get(i).get(j) + " is " + df.format(newEntropy));
+                                   */
                 
                 // add entropy * frequency to weighted entropies
-                aWeightedEntropies[i] += aFieldEntropies[i][j] * aFieldFrequencies[i][j];
+                weightedEntropy += newEntropy * newFrequency;
+                
+                frequenciesSet.add(newFrequency);
+                entropiesSet.add(newEntropy);
             }
+            
+            c_aFieldEntropies.add(entropiesSet);
+            c_aFieldFrequencies.add(frequenciesSet);
+            c_aWeightedEntropies.add(weightedEntropy);
 
             // divide weighted entropy by total number of examples to get average
-            aWeightedEntropies[i] = aWeightedEntropies[i] / examples.length;
+            for (int j = 0; j < c_aWeightedEntropies.size(); j++) {
+                c_aWeightedEntropies.set(j, c_aWeightedEntropies.get(j) / examples.size());   
+            }
             
-            System.out.println("     Weighted entropy of attribute " + attributes[i] + " is " + df.format(aWeightedEntropies[i]));
-            System.out.println("     Information gain of attribute " + attributes[i] + " is " + df.format((1.000 - aWeightedEntropies[i])));   
+            //System.out.println("     Weighted entropy of attribute " + c_attributes.get(i) + " is " + df.format(c_aWeightedEntropies.get(i)));
+            //System.out.println("     Information gain of attribute " + c_attributes.get(i) + " is " + df.format((1.000 - c_aWeightedEntropies.get(i))));
+        }
+        
+        // find attribute with highest information gain (or lowest weighted entropy)
+        int minIndex = 0;
+        // start with maximum possible value so first candidate for min will pass
+        double minValue = Double.MAX_VALUE;
+        
+        for (int i = 0; i < c_aWeightedEntropies.size(); i++) {
+            if (c_aWeightedEntropies.get(i) < minValue) {
+                minValue = c_aWeightedEntropies.get(i);
+                minIndex = i;
+            }
+        }
+        
+        // attribute with highest info gain has been determined
+        // this attribute is now the tree level
+        
+        System.out.print("\nLevel " + treeLevel + " Attribute: " + c_attributes.get(minIndex));
+        
+        // check each branch (field) under that attribute
+        for (int i = 0; i < c_aFields.get(minIndex).size(); i++) {
+        
+            // if entropy is 0, we can give final decision right away
+            if (c_aFieldEntropies.get(minIndex).get(i) == 0.000) {
+                System.out.print("\nAt level " + (treeLevel + 1) + ", "
+                                   + c_aFields.get(minIndex).get(i) + "=" + c_aFieldDescriptors.get(minIndex).get(i)
+                                   + ", decision: " );
+                // retrieve decision
+                // look for any instance of the field in examples
+                for (int k = 0; k < examples.size(); k++) {
+                    // get k-th example and attribute field located at j+1
+                    if (examples.get(k).get(minIndex+1) == c_aFields.get(minIndex).get(i)) {
+                        if (examples.get(k).get(0) == 't') {
+                            System.out.print("t=true\n");
+                            examples.remove(k);
+                            k--;
+                        }
+                        else {
+                            System.out.print("f=false\n");
+                            examples.remove(k);
+                            k--;
+                        }
+                        break;
+                    }
+                }
+            }
+            
+            // otherwise, investigate the branch more
+            else {
+                if (treeLevel < numOfAttributes) {
+                    System.out.println("\nSplit tree on " + c_aFields.get(minIndex).get(i) + "=" + c_aFieldDescriptors.get(minIndex).get(i));
+                    // recursively decide next level
+                    
+                    // create new attributes, aFields, aFieldDescriptors
+                    ArrayList<String> n_attributes = new ArrayList<String>(c_attributes.size());
+                    for (int j = 0; j < c_attributes.size(); j++)
+                    {
+                        if (j != minIndex) {
+                            n_attributes.add(c_attributes.get(j));
+                        }
+                    }
+                    
+                    ArrayList<ArrayList<Character>> n_aFields = new ArrayList<ArrayList<Character>>(c_aFields.size());
+                    for (int j = 0; j < c_aFields.size(); j++) {
+                        if (j != minIndex) {
+                            n_aFields.add(c_aFields.get(j));
+                        }
+                    }
+                    
+                    ArrayList<ArrayList<String>> n_aFieldDescriptors = new ArrayList<ArrayList<String>>(c_aFieldDescriptors.size());
+                    for (int j = 0; j < c_aFields.size(); j++) {
+                        if (j != minIndex) {
+                            n_aFieldDescriptors.add(c_aFieldDescriptors.get(j));
+                        }
+                    }
+                    
+                    decideNextTreeLevel(treeLevel + 1,
+                                        n_attributes,
+                                        n_aFields,
+                                        n_aFieldDescriptors,
+                                        examples);
+                }
+            }
         }
     }
     
